@@ -24,6 +24,22 @@
 
 using namespace nes;
 
+void Processor::stack_push(uint8_t byte) {
+    // NOTE remember, the stack is descending!
+    // We have to decrement the stack pointer here
+    uint16_t addr = stack_base | stack_ptr;
+    bus.write(addr, byte);
+    --stack_ptr;
+}
+
+uint8_t Processor::stack_pull() {
+    // NOTE remember, the stack is descending!
+    // We have to increment the stack pointer here
+    ++stack_ptr;
+    uint16_t addr = stack_base | stack_ptr;
+    return bus.read(addr);
+}
+
 uint8_t Processor::get_flag(Flag flag) const {
     uint8_t f = static_cast<uint8_t>(flag);
     return status & f;
@@ -47,7 +63,7 @@ uint16_t Processor::get_address() {
             // Addressing mode wasn't properly initialized
             std::cerr << "Invalid addressing mode!\n";
             return 0;
-        case Addressing::Implicit:
+        case Addressing::Implied:
             // No absolute address to fetch
             return 0;
         case Addressing::Accumulator:
@@ -156,7 +172,7 @@ uint8_t Processor::get_data() {
             // Addresing mode wasn't properly initialized
             std::cerr << "Invalid addressing mode!\n";
             return 0;
-        case Addressing::Implicit:
+        case Addressing::Implied:
             // No need to fetch data
             return 0;
         case Addressing::Accumulator:
@@ -177,4 +193,168 @@ uint8_t Processor::get_data() {
             return bus.read(addr);
     }
     return 0; // unreachable
+}
+
+// Load and store instructions:
+
+void Processor::inst_lda() {
+    // Load given data into the accumulator
+    acc = get_data();
+    set_flag(Flag::Zero, acc == 0);
+    set_flag(Flag::Negative, acc & 0x80);
+}
+
+void Processor::inst_ldx() {
+    // Load given data into the x register
+    x = get_data();
+    set_flag(Flag::Zero, x == 0);
+    set_flag(Flag::Negative, x & 0x80);
+}
+
+void Processor::inst_ldy() {
+    // Load given data into the y register
+    y = get_data();
+    set_flag(Flag::Zero, y == 0);
+    set_flag(Flag::Negative, y & 0x80);
+}
+
+void Processor::inst_sta() {
+    // Store the contents of the accumulator into the given address
+    uint16_t addr = get_address();
+    bus.write(addr, acc);
+}
+
+void Processor::inst_stx() {
+    // Store the contens of the x register into the given address
+    uint16_t addr = get_address();
+    bus.write(addr, x);
+}
+
+void Processor::inst_sty() {
+    // Store the contens of the y register into the given address
+    uint16_t addr = get_address();
+    bus.write(addr, y);
+}
+
+// Register transfer instructions:
+
+void Processor::inst_tax() {
+    // Copy the accumulator into the x register
+    x = acc;
+    set_flag(Flag::Zero, x == 0);
+    set_flag(Flag::Negative, x & 0x80);
+}
+
+void Processor::inst_tay() {
+    // Copy the accumulator into the y register
+    y = acc;
+    set_flag(Flag::Zero, y == 0);
+    set_flag(Flag::Negative, y & 0x80);
+}
+
+void Processor::inst_txa() {
+    // Copy the x register into the accumulator
+    acc = x;
+    set_flag(Flag::Zero, acc == 0);
+    set_flag(Flag::Negative, acc & 0x80);
+}
+
+void Processor::inst_tya() {
+    // Copy the y register into the accumulator
+    acc = y;
+    set_flag(Flag::Zero, acc == 0);
+    set_flag(Flag::Negative, acc & 0x80);
+}
+
+// Stack instructions:
+
+void Processor::inst_tsx() {
+    // Transfer stack pointer to the x register
+    x = stack_ptr;
+    set_flag(Flag::Zero, x == 0);
+    set_flag(Flag::Negative, x & 0x80);
+}
+
+void Processor::inst_txs() {
+    // Transfer the contents of the x register to the stack pointer
+    stack_ptr = x;
+}
+
+void Processor::inst_pha() {
+    // Push the value of the accumulator on the stack
+    stack_push(acc);
+}
+
+void Processor::inst_php() {
+    // Push the contents of the status register on the stack
+    stack_push(status);
+}
+
+void Processor::inst_pla() {
+    // Pull a byte from the stack and put it into the accumulator
+    acc = stack_pull();
+    set_flag(Flag::Zero, acc == 0);
+    set_flag(Flag::Negative, acc & 0x80);
+}
+
+void Processor::inst_plp() {
+    // Pull a byte from the stack and put it into the status register
+    status = stack_pull();
+}
+
+// Logic instructions:
+
+void Processor::inst_and() {
+    // Bitwise AND with the accumulator
+    uint8_t data = get_data();
+    acc &= data;
+    set_flag(Flag::Zero, acc == 0);
+    set_flag(Flag::Negative, acc & 0x80);
+}
+
+void Processor::inst_eor() {
+    // Bitwise XOR with the accumulator
+    uint8_t data = get_data();
+    acc ^= data;
+    set_flag(Flag::Zero, acc == 0);
+    set_flag(Flag::Negative, acc & 0x80);
+}
+
+void Processor::inst_ora() {
+    // Bitwise OR with the accumulator
+    uint8_t data = get_data();
+    acc |= data;
+    set_flag(Flag::Zero, acc == 0);
+    set_flag(Flag::Negative, acc & 0x80);
+}
+
+void Processor::inst_bit() {
+    // Bitwise AND with the accumulator, but the result is not kept. It is
+    // instead used to set the zero, negative and overflow flags
+    uint8_t data = get_data();
+    data = acc & data;
+    set_flag(Flag::Zero, data == 0);
+    set_flag(Flag::Overflow, data & 0x40);
+    set_flag(Flag::Negative, data & 0x80);
+}
+
+// Jump instructions:
+
+void Processor::inst_jmp() {
+    // Unconditional jump to the given address
+    pc = get_address();
+}
+
+void Processor::inst_jsr() {
+    // Jump to subroutine: it's pretty similar to the unconditional jump, except
+    // it pushes the address of the following instruction on the stack, so that
+    // the program can return to it after the subroutine is done
+    uint16_t subroutine = get_address();
+    stack_push(pc);
+    pc = subroutine;
+}
+
+void Processor::inst_rts() {
+    // Return from subroutine: pops the stack for the address to return to
+    pc = stack_pull();
 }

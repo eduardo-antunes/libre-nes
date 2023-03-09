@@ -33,10 +33,9 @@ namespace nes {
             Processor(Emulator &bus) : bus(bus) {}
 
         private:
-            // Starting address of the stack in RAM
-            uint16_t stack_start = 0x01FF;
-
-            // Reference to the external world, for communication
+            // Reference to the current emulator object, which acts as the main
+            // data bus. Its read and write methods are the primary way for the
+            // CPU to communicate with other devices in the system
             Emulator &bus;
 
             // Index registers: most commonly used to hold counters or offsets
@@ -50,9 +49,21 @@ namespace nes {
             // it can be (and is) modified directly for control flow
             uint16_t pc = 0x0200;
 
+            // The base address of the stack in RAM: it is the last possible
+            // address the stack may occupy. The real utility that it has is
+            // that you can bitwise OR it with the stack pointer to get the
+            // absolute address it corresponds to
+            static const uint16_t stack_base = 0x0100;
+
             // Stack pointer: holds the low byte of the address of the next 
             // free position of the (descending!) stack in RAM
             uint8_t stack_ptr = 0xFF;
+
+            // Push a byte on the stack
+            void stack_push(uint8_t byte);
+
+            // Pull a byte from the stack
+            uint8_t stack_pull();
 
             // Status register: used to record information about the
             // results of previously executed instructions
@@ -70,11 +81,11 @@ namespace nes {
                 Negative         = (1 << 7),
             };
 
-            // Get value of a flag from the status register
+            // Get the value of a flag from the status register
             uint8_t get_flag(Flag flag) const;
 
-            // Set value of a flag in the status register
-            void set_flag(Flag flag, bool state = true);
+            // Set the value of a flag in the status register
+            void set_flag(Flag flag, bool state);
 
             // Addressing modes are basically the different "flavors" the same
             // instruction may come in. They specify how many additional bytes
@@ -86,7 +97,7 @@ namespace nes {
 
             enum class Addressing : uint8_t {
                 Null        , // initial, invalid addressing mode
-                Implicit    ,
+                Implied     ,
                 Accumulator ,
                 Immediate   ,
                 ZeroPage    ,
@@ -111,6 +122,61 @@ namespace nes {
             // Based on the current addressing mode, get an 8-bit value for the
             // current instruction to work with
             uint8_t get_data();
+
+            // There are a total of 56 instructions available in the processor.
+            // Each one of them should work with multiple addressing modes,
+            // hence why the modes are abstracted behind the previous methods.
+
+            // Load and store instructions:
+            void inst_lda();
+            void inst_ldx();
+            void inst_ldy();
+            void inst_sta();
+            void inst_stx();
+            void inst_sty();
+
+            // Register transfer instructions:
+            void inst_tax();
+            void inst_tay();
+            void inst_txa();
+            void inst_tya();
+
+            // Stack instructions:
+            void inst_tsx();
+            void inst_txs();
+            void inst_pha();
+            void inst_php();
+            void inst_pla();
+            void inst_plp();
+
+            // Logic instructions:
+            void inst_and();
+            void inst_eor();
+            void inst_ora();
+            void inst_bit();
+
+            // Jump instructions:
+            void inst_jmp();
+            void inst_jsr();
+            void inst_rts();
+
+            // Flag set instructions:
+            void inst_sec() { set_flag(Flag::Carry            , true); }
+            void inst_sei() { set_flag(Flag::InterruptDisable , true); }
+            void inst_sed() { set_flag(Flag::Decimal          , true); }
+
+            // Flag clear intructions:
+            void inst_clc() { set_flag(Flag::Carry            , false); }
+            void inst_cli() { set_flag(Flag::InterruptDisable , false); }
+            void inst_cld() { set_flag(Flag::Decimal          , false); }
+            void inst_clv() { set_flag(Flag::Overflow         , false); }
+
+            // TODO:
+            // - arithmetic instructions
+            // - increments and decrements
+            // - shifts
+            // - branches
+            // - system functions
     };
 }
 
