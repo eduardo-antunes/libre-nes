@@ -47,7 +47,7 @@ namespace nes {
             // Program counter: stores the address of the next instruction to
             // be executed. Ordinarily, it increases linearly through RAM, but
             // it can be (and is) modified directly for control flow
-            uint16_t pc = 0x0200;
+            uint16_t pc = 0;
 
             // The base address of the stack in RAM: it is the last possible
             // address the stack may occupy. The real utility that it has is
@@ -125,7 +125,8 @@ namespace nes {
 
             // There are a total of 56 instructions available in the processor.
             // Each one of them should work with multiple addressing modes,
-            // hence why the modes are abstracted behind the previous methods.
+            // hence why the modes are mostly abstracted behind the previous 
+            // methods.
 
             // Load and store instructions:
             void inst_lda();
@@ -155,6 +156,22 @@ namespace nes {
             void inst_ora();
             void inst_bit();
 
+            // Increment instructions:
+            void inst_inc();
+            void inst_inx();
+            void inst_iny();
+
+            // Decrement instructions:
+            void inst_dec();
+            void inst_dex();
+            void inst_dey();
+
+            // Shift instructions:
+            void inst_asl();
+            void inst_lsr();
+            void inst_rol();
+            void inst_ror();
+
             // Jump instructions:
             void inst_jmp();
             void inst_jsr();
@@ -173,8 +190,6 @@ namespace nes {
 
             // TODO:
             // - arithmetic instructions
-            // - increments and decrements
-            // - shifts
             // - branches
             // - system functions
     };

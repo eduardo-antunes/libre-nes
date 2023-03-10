@@ -47,47 +47,49 @@ uint8_t Processor::get_flag(Flag flag) const {
 
 void Processor::set_flag(Flag flag, bool state) {
     uint8_t f = static_cast<uint8_t>(flag);
-    if(state)
-        status |= f;
-    else
-        status &= ~f;
+    if(state) status |= f;
+    else status &= ~f;
 }
 
 // TODO account for all of the complexity that's missing
 
 uint16_t Processor::get_address() {
     // Get an absolute address based on the addressing mode
-    uint16_t ptr, addr;
+    uint16_t address, ptr;
     switch(addr_mode) {
         case Addressing::Null:
             // Addressing mode wasn't properly initialized
             std::cerr << "Invalid addressing mode!\n";
-            return 0;
+            address = 0;
+            break;
         case Addressing::Implied:
             // No absolute address to fetch
-            return 0;
+            address = 0;
+            break;
         case Addressing::Accumulator:
             // No absolute address to fetch
-            return 0;
+            address = 0;
+            break;
         case Addressing::Immediate:
             // No absolute address to fetch (here, we could also return the
             // address of the following byte, but this is fine for now)
-            return 0;
+            address = 0;
+            break;
 
         case Addressing::ZeroPage:
             // A zero page address is stored in the next byte
-            addr = bus.read(pc++);
-            return addr & 0x00FF;
+            address = bus.read(pc++) & 0x00FF;
+            break;
         case Addressing::ZeroPage_x:
             // The zero page address in the next byte is summed with the
             // contents of the x register.
-            addr = bus.read(pc++);
-            return (addr + x) & 0x00FF;
+            address = (bus.read(pc++) + x) & 0x00FF;
+            break;
         case Addressing::ZeroPage_y:
             // The zero page address in the next byte is summed with the
             // contents of the y register.
-            addr = bus.read(pc++);
-            return (addr + y) & 0x00FF;
+            address = (bus.read(pc++) + y) & 0x00FF;
+            break;
 
         case Addressing::Relative:
             // This one is only used in branching instructions. The next byte
@@ -95,40 +97,42 @@ uint16_t Processor::get_address() {
             // converted to a 16-bit value and summed with the address of the
             // instruction itself (which is PC minus 2 after reading the offset)
             // to obtain the absolute address to jump to.
-            addr = bus.read(pc++);
+            address = bus.read(pc++);
 
             // To convert the jump offset to a 16-bit signed integer, we have
             // to check whether it is negative, which is indicated by the
             // value of the 7th bit. If it is, we have to set its high 8 bits
             // to 1s. This is enough for the address math to work out correctly.
-            if(addr & 0x80) addr &= 0xFF00;
-            addr += pc - 2;
-            return addr;
+            if(address & 0x80) address &= 0xFF00;
+            address += pc - 2;
+            break;
 
         case Addressing::Absolute:
             // The following two bytes of the instruction are, in little endian
             // order, part of a 16-bit absolute address
-            addr = bus.read(pc++);
-            addr |= bus.read(pc++) << 8;
-            return addr;
+            address = bus.read(pc++);
+            address |= bus.read(pc++) << 8;
+            break;
         case Addressing::Absolute_x:
             // The following two bytes of the instruction are, in little endian
             // order, part of a 16-bit absolute address, which has to be summed
             // with the contents of the x register. NOTE this may require an
             // aditional clock cycle if, after the addition with x, the address
             // crosses a page boundary
-            addr = bus.read(pc++);
-            addr |= bus.read(pc++) << 8;
-            return addr + x;
+            address = bus.read(pc++);
+            address |= bus.read(pc++) << 8;
+            address += x;
+            break;
         case Addressing::Absolute_y:
             // The following two bytes of the instruction are, in little endian
             // order, part of a 16-bit absolute address, which has to be summed
             // with the contents of the y register. NOTE this may require an
             // aditional clock cycle if, after the addition with y, the address
             // crosses a page boundary
-            addr = bus.read(pc++);
-            addr |= bus.read(pc++) << 8;
-            return addr + y;
+            address = bus.read(pc++);
+            address |= bus.read(pc++) << 8;
+            address += y;
+            break;
 
         case Addressing::Indirect:
             // The following two bytes of the instruction are, in little endian
@@ -138,9 +142,9 @@ uint16_t Processor::get_address() {
             // once I do, I better take care of that
             ptr = bus.read(pc++);
             ptr |= bus.read(pc++) << 8;
-            addr = bus.read(ptr);
-            addr |= bus.read(ptr + 1) << 8;
-            return addr;
+            address = bus.read(ptr);
+            address |= bus.read(ptr + 1) << 8;
+            break;
 
         case Addressing::Indirect_x:
             // A zero page address is in the following byte. Summing it with
@@ -148,9 +152,9 @@ uint16_t Processor::get_address() {
             // we get a zero page pointer to the real, 16-bit absolute address
             ptr = bus.read(pc++);
             ptr = (ptr + x) & 0x00FF;
-            addr = bus.read(ptr);
-            addr |= bus.read((ptr + 1) & 0x00FF);
-            return addr;
+            address = bus.read(ptr);
+            address |= bus.read((ptr + 1) & 0x00FF);
+            break;
         case Addressing::Indirect_y:
             // A zero page address is in the following byte. It points to the
             // real, 16-bit absolute address, which is summed with the contents
@@ -158,11 +162,12 @@ uint16_t Processor::get_address() {
             // require an extra clock cycle if, after addition with y, the
             // address crosses a page boundary
             ptr = bus.read(pc++);
-            addr = bus.read(ptr);
-            addr |= bus.read((ptr + 1) & 0x00FF);
-            return addr + y;
+            address = bus.read(ptr);
+            address |= bus.read((ptr + 1) & 0x00FF);
+            address += y;
+            break;
     }
-    return 0; // unreachable
+    return address;
 }
 
 uint8_t Processor::get_data() {
@@ -338,6 +343,141 @@ void Processor::inst_bit() {
     set_flag(Flag::Negative, data & 0x80);
 }
 
+// Increment instructions:
+
+void Processor::inst_inc() {
+    // Increment the memory location at the given address
+    uint16_t addr = get_address();
+    uint8_t data = bus.read(addr);
+    ++data;
+    bus.write(addr, data);
+    set_flag(Flag::Zero, data == 0);
+    set_flag(Flag::Negative, data & 0x80);
+}
+
+void Processor::inst_inx() {
+    // Increment the x register
+    ++x;
+    set_flag(Flag::Zero, x == 0);
+    set_flag(Flag::Negative, x & 0x80);
+}
+
+void Processor::inst_iny() {
+    // Increment the y register
+    ++y;
+    set_flag(Flag::Zero, y == 0);
+    set_flag(Flag::Negative, y & 0x80);
+}
+
+// Decrement instructions:
+
+void Processor::inst_dec() {
+    // Decrement the memory location at the given address
+    uint16_t addr = get_address();
+    uint8_t data = bus.read(addr);
+    --data;
+    bus.write(addr, data);
+    set_flag(Flag::Zero, data == 0);
+    set_flag(Flag::Negative, data & 0x80);
+}
+
+void Processor::inst_dex() {
+    // Decrement the x register
+    --x;
+    set_flag(Flag::Zero, x == 0);
+    set_flag(Flag::Negative, x & 0x80);
+}
+
+void Processor::inst_dey() {
+    // Decrement the y register
+    --y;
+    set_flag(Flag::Zero, y == 0);
+    set_flag(Flag::Negative, y & 0x80);
+}
+
+// Shift instructions:
+
+void Processor::inst_asl() {
+    // Arithmetic shift to the left of the memory location at the given address
+    // or the accumulator, depending on the addressing mode
+    if(addr_mode == Addressing::Accumulator) {
+        set_flag(Flag::Carry, acc & 0x80);
+        acc <<= 1;
+        set_flag(Flag::Negative, acc & 0x80);
+        return;
+    }
+    uint16_t addr = get_address();
+    uint8_t data = bus.read(addr);
+    set_flag(Flag::Carry, data & 0x80);
+    data <<= 1;
+    set_flag(Flag::Negative, data & 0x80);
+    bus.write(addr, data);
+}
+
+void Processor::inst_lsr() {
+    // Logical shift to the right of the memory location at the given address
+    // or the accumulator, depending on the addressing mode
+    if(addr_mode == Addressing::Accumulator) {
+        set_flag(Flag::Carry, acc & 0x01);
+        acc >>= 1;
+        set_flag(Flag::Negative, acc & 0x80);
+        return;
+    }
+    uint16_t addr = get_address();
+    uint8_t data = bus.read(addr);
+    set_flag(Flag::Carry, data & 0x01);
+    data >>= 1;
+    set_flag(Flag::Negative, data & 0x80);
+    bus.write(addr, data);
+}
+
+void Processor::inst_rol() {
+    // Rotate to the left the memory location at the given address or the
+    // accumulator, depending on the addressing mode
+    if(addr_mode == Addressing::Accumulator) {
+        uint8_t bit7 = acc & 0x80;
+        acc <<= 1;
+        // The bit that was shifted out (0) is filled with the current value of
+        // the carry flag
+        acc |= get_flag(Flag::Carry);
+        set_flag(Flag::Carry, bit7);
+        set_flag(Flag::Negative, acc & 0x80);
+        return;
+    }
+    uint16_t addr = get_address();
+    uint8_t data = bus.read(addr);
+    uint8_t bit7 = data & 0x80;
+    data <<= 1;
+    data |= get_flag(Flag::Carry);
+    set_flag(Flag::Carry, bit7);
+    set_flag(Flag::Negative, data & 0x80);
+    bus.write(addr, data);
+}
+
+void Processor::inst_ror() {
+    // Rotate to the right the memory location at the given address or the
+    // accumulator, depending on the addressing mode
+    if(addr_mode == Addressing::Accumulator) {
+        uint8_t bit0 = acc & 0x01;
+        acc >>= 1;
+        // The bit that was shifted out (7) is filled with the current value of
+        // the carry flag
+        acc |= get_flag(Flag::Carry) << 7;
+        set_flag(Flag::Carry, bit0);
+        set_flag(Flag::Negative, acc & 0x80);
+        return;
+    }
+    uint16_t addr = get_address();
+    uint8_t data = bus.read(addr);
+    uint8_t bit0 = data & 0x01;
+    data >>= 1;
+    data |= get_flag(Flag::Carry) << 7;
+    set_flag(Flag::Carry, bit0);
+    set_flag(Flag::Negative, data & 0x80);
+    bus.write(addr, data);
+
+}
+
 // Jump instructions:
 
 void Processor::inst_jmp() {
@@ -350,11 +490,13 @@ void Processor::inst_jsr() {
     // it pushes the address of the following instruction on the stack, so that
     // the program can return to it after the subroutine is done
     uint16_t subroutine = get_address();
-    stack_push(pc);
+    stack_push(pc & 0x00FF);
+    stack_push((pc & 0xFF00) >> 8);
     pc = subroutine;
 }
 
 void Processor::inst_rts() {
     // Return from subroutine: pops the stack for the address to return to
-    pc = stack_pull();
+    pc = stack_pull() << 8;
+    pc |= stack_pull();
 }
