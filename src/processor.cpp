@@ -16,6 +16,7 @@
    libre-nes. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <bitset>
 #include <cstdint>
 #include <iostream>
 
@@ -23,6 +24,78 @@
 #include "processor.hpp"
 
 using namespace nes;
+
+Processor::Processor(Emulator &bus) : bus(bus) {
+    // The initial value for the PC has to be fetched from 0xFFFC
+    pc = bus.read(0xFFFC);
+    pc |= bus.read(0xFFFD) << 8;
+}
+
+void Processor::reset_state() {
+    // Reset all of the registers
+    x = 0;
+    y = 0;
+    acc = 0;
+    status = 0;
+    stack_ptr = 0xFF;
+    // The initial value for the PC has to be fetched from 0xFFFC
+    pc = bus.read(0xFFFC);
+    pc |= bus.read(0xFFFD) << 8;
+    // Reset addressing mode to an initial, invalid state
+    addr_mode = Addressing::Null;
+}
+
+void Processor::single_step() {
+    addr_mode = Addressing::Null;
+    uint8_t opcode = bus.read(pc++);
+    switch(opcode) {
+        // Testing stuff
+        case 0x29:
+            addr_mode = Addressing::Immediate;
+            inst_and();
+            break;
+        case 0xA5:
+            addr_mode = Addressing::ZeroPage;
+            inst_lda();
+            break;
+        case 0xA9:
+            addr_mode = Addressing::Immediate;
+            inst_lda();
+            break;
+    }
+}
+
+void Processor::show_registers() const {
+    // I use printf here because printing hexadecimal numbers the C++ way
+    // causes me physical pain
+    printf("PC: 0x%04X\n", pc);
+    printf("X: 0x%02X\n", x);
+    printf("Y: 0x%02X\n", y);
+    printf("A: 0x%02X\n", acc);
+    printf("S: 0x%02X\n", stack_ptr);
+    std::bitset<8> status_bits(status);
+    std::cout << "P: 0b" << status_bits << '\n';
+}
+
+void Processor::show_opcode() const {
+    uint8_t op = bus.read(pc);
+    printf("Next opcode to be executed: 0x%02X\n", op);
+}
+
+void Processor::show_stack() const {
+    bool first = true;
+    uint16_t ptr = stack_base | stack_ptr;
+    std::cout << "[";
+    while(ptr <= 0x01FF) {
+        if(first) {
+            printf("0x%02X", bus.read(ptr++));
+            first = false;
+        } else {
+            printf("0x%02X ", bus.read(ptr++));
+        }
+    }
+    std::cout << "]\n";
+}
 
 void Processor::stack_push(uint8_t byte) {
     // NOTE remember, the stack is descending!

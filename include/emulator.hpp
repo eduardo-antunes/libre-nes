@@ -20,6 +20,7 @@
 #define NES_EMULATOR_HPP
 
 #include <array>
+#include <vector>
 #include "processor.hpp"
 
 // This class represents both the console itself, holding a list of its major
@@ -36,6 +37,12 @@ namespace nes {
             // from and write to the main data bus via the following methods.
             Emulator() : cpu(*this) {}
 
+            // Load a simple program into RAM, useful for testing
+            void load_prog(const std::vector<uint8_t> &prog, uint16_t inst_nr);
+
+            // Start the emulator
+            void start();
+
             // Read from the main data bus
             uint8_t read(uint16_t addr) const;
 
@@ -43,6 +50,12 @@ namespace nes {
             void write(uint16_t addr, uint8_t data);
 
         private:
+            // Starting address for the start of the program, hardcoded for now
+            static const uint16_t prog_start = 0x0200;
+
+            // Size of the loaded program, temporary
+            uint16_t instruction_nr;
+
             // The 6502-like processor used by the NES
             Processor cpu;
 

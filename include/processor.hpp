@@ -30,7 +30,23 @@ namespace nes { class Emulator; } // stupid forward declaration :)
 namespace nes {
     class Processor {
         public:
-            Processor(Emulator &bus) : bus(bus) {}
+            // Construct a processor connected to an emulator object
+            Processor(Emulator &bus);
+
+            // Reset the state of the CPU
+            void reset_state();
+
+            // Run a single cycle of execution
+            void single_step();
+
+            // Show the current state of all registers
+            void show_registers() const;
+
+            // Show next opcode to be executed
+            void show_opcode() const;
+
+            // Show values on the stack, from top to bottom
+            void show_stack() const;
 
         private:
             // Reference to the current emulator object, which acts as the main

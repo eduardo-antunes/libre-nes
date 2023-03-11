@@ -16,11 +16,17 @@
    libre-nes. If not, see <https://www.gnu.org/licenses/>.
 */
 
+#include <vector>
+#include <cstdint>
 #include <iostream>
 #include "emulator.hpp"
 
 int main() {
-    nes::Emulator nes_emu; // just checking if the constructor works
-    std::cout << "Hello, NES development!" << std::endl;
+    nes::Emulator nes_emu;
+    nes_emu.write(0x0000, 0x81);
+    std::vector<uint8_t> prog{0xA5, 0x00, 0x29, 0x01};
+
+    nes_emu.load_prog(prog, 2);
+    nes_emu.start();
     return 0;
 }
