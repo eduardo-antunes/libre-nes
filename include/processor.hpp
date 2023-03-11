@@ -87,14 +87,14 @@ namespace nes {
 
             // Flags indicated by the status register
             enum class Flag : uint8_t {
-                Carry            = (1 << 0),
-                Zero             = (1 << 1),
-                InterruptDisable = (1 << 2),
-                Decimal          = (1 << 3), // no effect in the NES
-                Break            = (1 << 4), // no CPU effect
-                Unused           = (1 << 5), // no CPU effect
-                Overflow         = (1 << 6),
-                Negative         = (1 << 7),
+                Carry            = 0,
+                Zero             = 1,
+                InterruptDisable = 2,
+                Decimal          = 3, // no effect in the NES
+                Break            = 4, // no CPU effect
+                Unused           = 5, // no CPU effect
+                Overflow         = 6,
+                Negative         = 7,
             };
 
             // Get the value of a flag from the status register

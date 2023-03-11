@@ -54,6 +54,10 @@ void Processor::single_step() {
             addr_mode = Addressing::Immediate;
             inst_and();
             break;
+        case 0x6C:
+            addr_mode = Addressing::Indirect;
+            inst_jmp();
+            break;
         case 0xA5:
             addr_mode = Addressing::ZeroPage;
             inst_lda();
@@ -115,13 +119,13 @@ uint8_t Processor::stack_pull() {
 
 uint8_t Processor::get_flag(Flag flag) const {
     uint8_t f = static_cast<uint8_t>(flag);
-    return status & f;
+    return (status & (1 << f) >> f);
 }
 
 void Processor::set_flag(Flag flag, bool state) {
     uint8_t f = static_cast<uint8_t>(flag);
-    if(state) status |= f;
-    else status &= ~f;
+    if(state) status |= (1 << f);
+    else status &= ~(1 << f);
 }
 
 // TODO account for all of the complexity that's missing
@@ -210,13 +214,19 @@ uint16_t Processor::get_address() {
         case Addressing::Indirect:
             // The following two bytes of the instruction are, in little endian
             // order, part of a 16-bit pointer to the real absolute address.
-            // BUG this addressing mode has a bug in the original hardware! It
-            // has to do with cycles, which I'm not dealing with right now, but
-            // once I do, I better take care of that
             ptr = bus.read(pc++);
             ptr |= bus.read(pc++) << 8;
+
+            // This addressing mode had a bug in the original hardware! When
+            // adding 1 to the pointer would cross a page boundary, the high
+            // byte of the target address is incorrectly fetched from the
+            // beginning of the pointer's current page. For compatibility with
+            // the NES, this is a bug we have to reproduce
             address = bus.read(ptr);
-            address |= bus.read(ptr + 1) << 8;
+            if((ptr & 0x00FF) == 0x00FF)
+                address |= bus.read(ptr & 0xFF00) << 8;
+            else
+                address |= bus.read(ptr + 1) << 8;
             break;
 
         case Addressing::Indirect_x:

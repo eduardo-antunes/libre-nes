@@ -24,9 +24,11 @@
 int main() {
     nes::Emulator nes_emu;
     nes_emu.write(0x0000, 0x81);
-    std::vector<uint8_t> prog{0xA5, 0x00, 0x29, 0x01};
+    nes_emu.write(0x00FF, 0x42);
+    nes_emu.write(0x0100, 0x43);
+    std::vector<uint8_t> prog { 0x6C, 0xFF, 0x00 };
 
-    nes_emu.load_prog(prog, 2);
+    nes_emu.load_prog(prog, 1);
     nes_emu.start();
     return 0;
 }
