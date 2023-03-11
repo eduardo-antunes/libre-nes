@@ -66,6 +66,10 @@ void Processor::single_step() {
             addr_mode = Addressing::Immediate;
             inst_lda();
             break;
+        case 0xF0:
+            addr_mode = Addressing::Relative;
+            inst_beq();
+            break;
     }
 }
 
@@ -119,13 +123,13 @@ uint8_t Processor::stack_pull() {
 
 uint8_t Processor::get_flag(Flag flag) const {
     uint8_t f = static_cast<uint8_t>(flag);
-    return (status & (1 << f) >> f);
+    return status & f;
 }
 
 void Processor::set_flag(Flag flag, bool state) {
     uint8_t f = static_cast<uint8_t>(flag);
-    if(state) status |= (1 << f);
-    else status &= ~(1 << f);
+    if(state) status |= f;
+    else status &= ~f;
 }
 
 // TODO account for all of the complexity that's missing
@@ -180,7 +184,7 @@ uint16_t Processor::get_address() {
             // to check whether it is negative, which is indicated by the
             // value of the 7th bit. If it is, we have to set its high 8 bits
             // to 1s. This is enough for the address math to work out correctly.
-            if(address & 0x80) address &= 0xFF00;
+            if(address & 0x80) address |= 0xFF00;
             address += pc - 2;
             break;
 
@@ -582,4 +586,62 @@ void Processor::inst_rts() {
     // Return from subroutine: pops the stack for the address to return to
     pc = stack_pull() << 8;
     pc |= stack_pull();
+}
+
+// Branch instructions:
+
+void Processor::inst_bcc() {
+    // Branch if carry flag is clear
+    if(!get_flag(Flag::Carry)) {
+        pc = get_address();
+    }
+}
+
+void Processor::inst_bcs() {
+    // Branch if carry flag is set
+    if(get_flag(Flag::Carry)) {
+        pc = get_address();
+    }
+}
+
+void Processor::inst_beq() {
+    // Branch if zero flag is set
+    if(get_flag(Flag::Zero)) {
+        pc = get_address();
+    }
+}
+
+void Processor::inst_bmi() {
+    // Branch if negative flag is set
+    if(get_flag(Flag::Negative)) {
+        pc = get_address();
+    }
+}
+
+void Processor::inst_bne() {
+    // Branch if zero flag is clear
+    if(!get_flag(Flag::Zero)) {
+        pc = get_address();
+    }
+}
+
+void Processor::inst_bpl() {
+    // Branch if negative flag is clear
+    if(!get_flag(Flag::Negative)) {
+        pc = get_address();
+    }
+}
+
+void Processor::inst_bvc() {
+    // Branch if overflow flag is clear
+    if(!get_flag(Flag::Overflow)) {
+        pc = get_address();
+    }
+}
+
+void Processor::inst_bvs() {
+    // Branch if overflow flag is set
+    if(get_flag(Flag::Overflow)) {
+        pc = get_address();
+    }
 }

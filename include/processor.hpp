@@ -87,14 +87,14 @@ namespace nes {
 
             // Flags indicated by the status register
             enum class Flag : uint8_t {
-                Carry            = 0,
-                Zero             = 1,
-                InterruptDisable = 2,
-                Decimal          = 3, // no effect in the NES
-                Break            = 4, // no CPU effect
-                Unused           = 5, // no CPU effect
-                Overflow         = 6,
-                Negative         = 7,
+                Carry            = (1 << 0),
+                Zero             = (1 << 1),
+                InterruptDisable = (1 << 2),
+                Decimal          = (1 << 3), // no effect in the NES
+                Break            = (1 << 4), // no CPU effect
+                Unused           = (1 << 5), // no CPU effect
+                Overflow         = (1 << 6),
+                Negative         = (1 << 7),
             };
 
             // Get the value of a flag from the status register
@@ -193,6 +193,16 @@ namespace nes {
             void inst_jsr();
             void inst_rts();
 
+            // Branch instructions:
+            void inst_bcc();
+            void inst_bcs();
+            void inst_beq();
+            void inst_bmi();
+            void inst_bne();
+            void inst_bpl();
+            void inst_bvc();
+            void inst_bvs();
+
             // Flag set instructions:
             void inst_sec() { set_flag(Flag::Carry            , true); }
             void inst_sei() { set_flag(Flag::InterruptDisable , true); }
@@ -206,7 +216,6 @@ namespace nes {
 
             // TODO:
             // - arithmetic instructions
-            // - branches
             // - system functions
     };
 }
