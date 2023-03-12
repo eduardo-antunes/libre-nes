@@ -38,6 +38,8 @@ void Emulator::start() {
         cpu.single_step();
         std::cout << "CPU registers after execution:\n";
         cpu.show_registers();
+        std::cout << "Stack: ";
+        cpu.show_stack();
         std::cout << '\n';
     }
 }

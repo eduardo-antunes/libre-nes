@@ -216,7 +216,7 @@ namespace nes {
 
             // TODO:
             // - arithmetic instructions
-            // - system functions
+            // - interrupt related instructions (BRK and RTI)
     };
 }
 

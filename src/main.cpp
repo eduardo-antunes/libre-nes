@@ -23,9 +23,16 @@
 
 int main() {
     nes::Emulator nes_emu;
-    std::vector<uint8_t> prog { 0xA9, 0x00, 0xF0, 0xFE };
+    std::vector<uint8_t> prog {
+        0xA9, 0x01, // lda #01
+        0xA0, 0x04, // ldy #04
+        0x11, 0x03, // ora ($03),Y
+    };
+    nes_emu.write(0x0003, 0x00);
+    nes_emu.write(0x0004, 0x05);
+    nes_emu.write(0x0504, 0x80);
 
-    nes_emu.load_prog(prog, 2);
+    nes_emu.load_prog(prog, 3);
     nes_emu.start();
     return 0;
 }

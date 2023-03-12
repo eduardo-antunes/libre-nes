@@ -50,13 +50,61 @@ void Processor::single_step() {
     uint8_t opcode = bus.read(pc++);
     switch(opcode) {
         // Testing stuff
+        case 0x08:
+            addr_mode = Addressing::Implied;
+            inst_php();
+            break;
+        case 0x0A:
+            addr_mode = Addressing::Accumulator;
+            inst_asl();
+            break;
+        case 0x0E:
+            addr_mode = Addressing::Absolute;
+            inst_asl();
+            break;
+        case 0x11:
+            addr_mode = Addressing::Indirect_y;
+            inst_ora();
+            break;
         case 0x29:
             addr_mode = Addressing::Immediate;
             inst_and();
             break;
+        case 0x38:
+            addr_mode = Addressing::Implied;
+            inst_sec();
+            break;
+        case 0x3E:
+            addr_mode = Addressing::Absolute_x;
+            inst_rol();
+            break;
+        case 0x48:
+            addr_mode = Addressing::Implied;
+            inst_pha();
+            break;
+        case 0x56:
+            addr_mode = Addressing::ZeroPage_x;
+            inst_lsr();
+            break;
         case 0x6C:
             addr_mode = Addressing::Indirect;
             inst_jmp();
+            break;
+        case 0x81:
+            addr_mode = Addressing::Indirect_x;
+            inst_sta();
+            break;
+        case 0x99:
+            addr_mode = Addressing::Absolute_y;
+            inst_sta();
+            break;
+        case 0xA0:
+            addr_mode = Addressing::Immediate;
+            inst_ldy();
+            break;
+        case 0xA2:
+            addr_mode = Addressing::Immediate;
+            inst_ldx();
             break;
         case 0xA5:
             addr_mode = Addressing::ZeroPage;
@@ -65,6 +113,10 @@ void Processor::single_step() {
         case 0xA9:
             addr_mode = Addressing::Immediate;
             inst_lda();
+            break;
+        case 0xB6:
+            addr_mode = Addressing::ZeroPage_y;
+            inst_ldx();
             break;
         case 0xF0:
             addr_mode = Addressing::Relative;
@@ -94,12 +146,12 @@ void Processor::show_stack() const {
     bool first = true;
     uint16_t ptr = stack_base | stack_ptr;
     std::cout << "[";
-    while(ptr <= 0x01FF) {
+    while(ptr < 0x01FF) {
         if(first) {
-            printf("0x%02X", bus.read(ptr++));
+            printf("0x%02X", bus.read(++ptr));
             first = false;
         } else {
-            printf("0x%02X ", bus.read(ptr++));
+            printf(" 0x%02X", bus.read(++ptr));
         }
     }
     std::cout << "]\n";
@@ -240,7 +292,7 @@ uint16_t Processor::get_address() {
             ptr = bus.read(pc++);
             ptr = (ptr + x) & 0x00FF;
             address = bus.read(ptr);
-            address |= bus.read((ptr + 1) & 0x00FF);
+            address |= bus.read((ptr + 1) & 0x00FF) << 8;
             break;
         case Addressing::Indirect_y:
             // A zero page address is in the following byte. It points to the
@@ -250,7 +302,7 @@ uint16_t Processor::get_address() {
             // address crosses a page boundary
             ptr = bus.read(pc++);
             address = bus.read(ptr);
-            address |= bus.read((ptr + 1) & 0x00FF);
+            address |= bus.read((ptr + 1) & 0x00FF) << 8;
             address += y;
             break;
     }
