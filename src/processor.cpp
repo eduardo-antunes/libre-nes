@@ -50,6 +50,10 @@ void Processor::single_step() {
     uint8_t opcode = bus.read(pc++);
     switch(opcode) {
         // Testing stuff
+        case 0x06:
+            addr_mode = Addressing::ZeroPage;
+            inst_asl();
+            break;
         case 0x08:
             addr_mode = Addressing::Implied;
             inst_php();
@@ -184,8 +188,6 @@ void Processor::set_flag(Flag flag, bool state) {
     else status &= ~f;
 }
 
-// TODO account for all of the complexity that's missing
-
 uint16_t Processor::get_address() {
     // Get an absolute address based on the addressing mode
     uint16_t address, ptr;
@@ -309,7 +311,7 @@ uint16_t Processor::get_address() {
     return address;
 }
 
-uint8_t Processor::get_data() {
+uint8_t Processor::get_data(uint16_t *address) {
     uint16_t addr;
     switch(addr_mode) {
         case Addressing::Null:
@@ -334,6 +336,8 @@ uint8_t Processor::get_data() {
             // For the other addressing modes, it's really just a matter of
             // fetching an 8-bit value from the address they specify
             addr = get_address();
+            if(address != nullptr) 
+                *address = addr;
             return bus.read(addr);
     }
     return 0; // unreachable
@@ -486,8 +490,8 @@ void Processor::inst_bit() {
 
 void Processor::inst_inc() {
     // Increment the memory location at the given address
-    uint16_t addr = get_address();
-    uint8_t data = bus.read(addr);
+    uint16_t addr;
+    uint8_t data = get_data(&addr);
     ++data;
     bus.write(addr, data);
     set_flag(Flag::Zero, data == 0);
@@ -512,8 +516,8 @@ void Processor::inst_iny() {
 
 void Processor::inst_dec() {
     // Decrement the memory location at the given address
-    uint16_t addr = get_address();
-    uint8_t data = bus.read(addr);
+    uint16_t addr;
+    uint8_t data = get_data(&addr);
     --data;
     bus.write(addr, data);
     set_flag(Flag::Zero, data == 0);
@@ -539,82 +543,65 @@ void Processor::inst_dey() {
 void Processor::inst_asl() {
     // Arithmetic shift to the left of the memory location at the given address
     // or the accumulator, depending on the addressing mode
-    if(addr_mode == Addressing::Accumulator) {
-        set_flag(Flag::Carry, acc & 0x80);
-        acc <<= 1;
-        set_flag(Flag::Negative, acc & 0x80);
-        return;
-    }
-    uint16_t addr = get_address();
-    uint8_t data = bus.read(addr);
+    uint16_t addr;
+    uint8_t data = get_data(&addr);
     set_flag(Flag::Carry, data & 0x80);
     data <<= 1;
     set_flag(Flag::Negative, data & 0x80);
-    bus.write(addr, data);
+    if(addr_mode != Addressing::Accumulator)
+        bus.write(addr, data);
+    else
+        acc = data;
 }
 
 void Processor::inst_lsr() {
     // Logical shift to the right of the memory location at the given address
     // or the accumulator, depending on the addressing mode
-    if(addr_mode == Addressing::Accumulator) {
-        set_flag(Flag::Carry, acc & 0x01);
-        acc >>= 1;
-        set_flag(Flag::Negative, acc & 0x80);
-        return;
-    }
-    uint16_t addr = get_address();
-    uint8_t data = bus.read(addr);
+    uint16_t addr;
+    uint8_t data = get_data(&addr);
     set_flag(Flag::Carry, data & 0x01);
     data >>= 1;
     set_flag(Flag::Negative, data & 0x80);
-    bus.write(addr, data);
+    if(addr_mode != Addressing::Accumulator)
+        bus.write(addr, data);
+    else
+        acc = data;
 }
 
 void Processor::inst_rol() {
     // Rotate to the left the memory location at the given address or the
     // accumulator, depending on the addressing mode
-    if(addr_mode == Addressing::Accumulator) {
-        uint8_t bit7 = acc & 0x80;
-        acc <<= 1;
-        // The bit that was shifted out (0) is filled with the current value of
-        // the carry flag
-        acc |= get_flag(Flag::Carry);
-        set_flag(Flag::Carry, bit7);
-        set_flag(Flag::Negative, acc & 0x80);
-        return;
-    }
-    uint16_t addr = get_address();
-    uint8_t data = bus.read(addr);
+    uint16_t addr;
+    uint8_t data = get_data(&addr);
     uint8_t bit7 = data & 0x80;
     data <<= 1;
+    // The bit that was shifted out (0) is filled with the current value of
+    // the carry flag
     data |= get_flag(Flag::Carry);
     set_flag(Flag::Carry, bit7);
     set_flag(Flag::Negative, data & 0x80);
-    bus.write(addr, data);
+    if(addr_mode != Addressing::Accumulator)
+        bus.write(addr, data);
+    else
+        acc = data;
 }
 
 void Processor::inst_ror() {
     // Rotate to the right the memory location at the given address or the
     // accumulator, depending on the addressing mode
-    if(addr_mode == Addressing::Accumulator) {
-        uint8_t bit0 = acc & 0x01;
-        acc >>= 1;
-        // The bit that was shifted out (7) is filled with the current value of
-        // the carry flag
-        acc |= get_flag(Flag::Carry) << 7;
-        set_flag(Flag::Carry, bit0);
-        set_flag(Flag::Negative, acc & 0x80);
-        return;
-    }
-    uint16_t addr = get_address();
-    uint8_t data = bus.read(addr);
+    uint16_t addr;
+    uint8_t data = get_data(&addr);
     uint8_t bit0 = data & 0x01;
     data >>= 1;
+    // The bit that was shifted out (7) is filled with the current value of
+    // the carry flag
     data |= get_flag(Flag::Carry) << 7;
     set_flag(Flag::Carry, bit0);
     set_flag(Flag::Negative, data & 0x80);
-    bus.write(addr, data);
-
+    if(addr_mode != Addressing::Accumulator)
+        bus.write(addr, data);
+    else
+        acc = data;
 }
 
 // Jump instructions:

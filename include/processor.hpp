@@ -136,8 +136,10 @@ namespace nes {
             uint16_t get_address();
 
             // Based on the current addressing mode, get an 8-bit value for the
-            // current instruction to work with
-            uint8_t get_data();
+            // current instruction to work with. This fetches an address using
+            // get_address internally. If you also need the address, you may
+            // optionally get it through the address pointer
+            uint8_t get_data(uint16_t *address = nullptr);
 
             // There are a total of 56 instructions available in the processor.
             // Each one of them should work with multiple addressing modes,
